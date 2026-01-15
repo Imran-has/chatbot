@@ -1,0 +1,192 @@
+# Default values for todo-chatbot Helm chart
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  namespace: todo-chatbot
+  imagePullPolicy: IfNotPresent
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-chatbot-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  env:
+    openaiModel: "gpt-4-turbo-preview"
+    corsOrigins: "http://localhost:3000,http://frontend:3000"
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-chatbot-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 3000
+    targetPort: 3000
+    nodePort: 30000
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  env:
+    apiUrl: "http://backend:8000"
+  livenessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+
+# PostgreSQL configuration (using Bitnami chart)
+postgresql:
+  enabled: true
+  auth:
+    username: postgres
+    password: postgres
+    database: todo_chatbot
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# Alternatively, use built-in PostgreSQL deployment (if postgresql.enabled is false)
+database:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  auth:
+    username: postgres
+    password: postgres
+    database: todo_chatbot
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Secrets (must be overridden in production)
+secrets:
+  openaiApiKey: ""
+  betterAuthSecret: "dev-secret-change-in-production"
+  databaseUrl: ""
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: todo-chatbot.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+  tls: []
+
+# ConfigMap settings
+configMap:
+  enabled: true
+
+# ServiceAccount settings
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}

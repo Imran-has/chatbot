@@ -1,0 +1,152 @@
+# Values for production deployment
+# Usage: helm install todo-chatbot . -f values-production.yaml
+# WARNING: Update all secrets before deploying to production!
+
+# Global settings
+global:
+  namespace: todo-chatbot-prod
+  imagePullPolicy: Always
+
+# Backend configuration - production settings
+backend:
+  enabled: true
+  replicaCount: 2  # Multiple replicas for HA
+  image:
+    repository: your-registry/todo-chatbot-backend
+    tag: "1.0.0"  # Use specific version tags
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    failureThreshold: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Frontend configuration - production settings
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: your-registry/todo-chatbot-frontend
+    tag: "1.0.0"
+    pullPolicy: Always
+  service:
+    type: ClusterIP  # Use Ingress for external access
+    port: 3000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# Use Bitnami PostgreSQL chart for production
+postgresql:
+  enabled: true
+  auth:
+    username: todo_user
+    password: ""  # MUST be set securely
+    database: todo_chatbot_prod
+    postgresPassword: ""  # MUST be set securely
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "standard"  # Adjust for your cloud provider
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  metrics:
+    enabled: true
+
+# Secrets - MUST be overridden
+secrets:
+  openaiApiKey: ""  # REQUIRED: Set via --set or sealed-secrets
+  betterAuthSecret: ""  # REQUIRED: Generate a secure random string
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: todo-chatbot.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+  tls:
+    - secretName: todo-chatbot-tls
+      hosts:
+        - todo-chatbot.yourdomain.com
+
+# Service account
+serviceAccount:
+  create: true
+  annotations:
+    # Add cloud provider annotations if needed
+    # eks.amazonaws.com/role-arn: arn:aws:iam::xxx:role/xxx
+
+# Pod settings
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Node affinity for multi-zone deployment
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: todo-chatbot
+          topologyKey: kubernetes.io/hostname

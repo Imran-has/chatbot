@@ -1,0 +1,106 @@
+# Values optimized for Minikube local development
+# Usage: helm install todo-chatbot . -f values-minikube.yaml
+
+# Global settings
+global:
+  namespace: todo-chatbot
+  imagePullPolicy: Never  # Use local images
+
+# Backend configuration - minimal resources for local dev
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-chatbot-backend
+    tag: latest
+    pullPolicy: Never  # Important: use local Minikube images
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60  # More time for local startup
+    periodSeconds: 15
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Frontend configuration - minimal resources for local dev
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-chatbot-frontend
+    tag: latest
+    pullPolicy: Never  # Important: use local Minikube images
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30000  # Fixed port for easy access
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  env:
+    apiUrl: "http://todo-chatbot-backend:8000"  # Internal cluster DNS
+
+# Use built-in PostgreSQL instead of Bitnami chart for simplicity
+postgresql:
+  enabled: false
+
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+  persistence:
+    enabled: true
+    size: 500Mi  # Smaller size for local dev
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  auth:
+    username: postgres
+    password: postgres
+    database: todo_chatbot
+
+# Secrets - override with actual values
+secrets:
+  openaiApiKey: ""  # Set via --set or environment
+  betterAuthSecret: "minikube-dev-secret"
+
+# Disable autoscaling for local dev
+backend:
+  autoscaling:
+    enabled: false
+
+frontend:
+  autoscaling:
+    enabled: false
+
+# No ingress needed - use NodePort
+ingress:
+  enabled: false
+
+# Pod settings
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000

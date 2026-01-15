@@ -1,0 +1,17 @@
+{{- if and .Values.database.enabled (not .Values.postgresql.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "todo-chatbot.fullname" . }}-database
+  labels:
+    {{- include "todo-chatbot.database.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.database.service.type }}
+  ports:
+    - port: {{ .Values.database.service.port }}
+      targetPort: {{ .Values.database.service.targetPort }}
+      protocol: TCP
+      name: postgres
+  selector:
+    {{- include "todo-chatbot.database.selectorLabels" . | nindent 4 }}
+{{- end }}

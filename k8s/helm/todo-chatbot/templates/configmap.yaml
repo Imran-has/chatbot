@@ -1,0 +1,12 @@
+{{- if .Values.configMap.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-chatbot.fullname" . }}-config
+  labels:
+    {{- include "todo-chatbot.labels" . | nindent 4 }}
+data:
+  OPENAI_MODEL: {{ .Values.backend.env.openaiModel | quote }}
+  CORS_ORIGINS: {{ .Values.backend.env.corsOrigins | quote }}
+  NEXT_PUBLIC_API_URL: {{ .Values.frontend.env.apiUrl | quote }}
+{{- end }}
